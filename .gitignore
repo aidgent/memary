@@ -3,4 +3,4 @@
 .DS_Store
 dist/
 README_hidden.md
-**/__pycache__/
+**/__pycache__/.aider*
