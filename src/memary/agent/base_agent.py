@@ -195,6 +195,10 @@ class Agent(object):
         response = self.mm_model.complete(prompt=query, image_documents=image_documents)
 
         os.remove(query_image_path)  # delete image after use
+        if return_entity:
+            # Extract entities from the response
+            response_entities = self.extract_entities_from_response(response)
+            return response, response_entities
         return response
 
     def stocks(self, query: str) -> str:
@@ -251,9 +255,17 @@ class Agent(object):
             list(list(response.metadata.values())[0]["kg_rel_map"].keys())
         )
 
-    def _select_top_entities(self):
+    def _select_top_entities(self, response_entities: List[str]):
+        """Select top entities based on their presence in the response.
+
+        Args:
+            response_entities (List[str]): List of entities present in the response.
+
+        Returns:
+            List[dict]: List of top entities.
+        """
         entity_knowledge_store = self.message.llm_message["knowledge_entity_store"]
-        entities = [entity.to_dict() for entity in entity_knowledge_store]
+        entities = [entity.to_dict() for entity in entity_knowledge_store if entity["entity"] in response_entities]
         entity_counts = [entity["count"] for entity in entities]
         top_indexes = np.argsort(entity_counts)[:TOP_ENTITIES]
         return [entities[index] for index in top_indexes]
@@ -273,7 +285,8 @@ class Agent(object):
         """
         llm_message_chat = self.message.llm_message.copy()
         llm_message_chat["messages"] = []
-        top_entities = self._select_top_entities()
+        response_entities = self.extract_entities_from_response(self.message.llm_message["messages"][-1].content)
+        top_entities = self._select_top_entities(response_entities)
         logging.info(f"top_entities: {top_entities}")
         llm_message_chat["messages"].append(
             {
@@ -421,7 +434,20 @@ class Agent(object):
                 entities.remove(exceptions)
         return entities
 
-    def _init_ReAct_agent(self):
+    def extract_entities_from_response(self, response: str) -> List[str]:
+        """Extract entities from the response text.
+
+        Args:
+            response (str): The response text from which to extract entities.
+
+        Returns:
+            List[str]: A list of entities present in the response.
+        """
+        entities = []
+        for entity in self.entity_knowledge_store.get_memory():
+            if entity.entity.lower() in response.lower():
+                entities.append(entity.entity)
+        return entities
         """Initializes ReAct Agent with list of tools in self.tools."""
         tool_fns = []
         for func in self.tools.values():
