@@ -180,7 +180,7 @@ class Agent(object):
         formatted_address = reverse_geocode_result[0]["formatted_address"]
         return "Your address is" + formatted_address
 
-    def vision(self, query: str, img_url: str) -> str:
+    def vision(self, query: str, img_url: str, return_entity=False) -> str:
         """Uses computer vision to process the image specified by the image url and answers the question based on the CV results"""
         query_image_dir_path = Path("query_images")
         if not query_image_dir_path.exists():
